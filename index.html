@@ -27,10 +27,14 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 #reader{display:none;flex-direction:column;height:100%}
 #scroll{flex:1;overflow:auto;background:#8884;position:relative}
 #pg{position:relative;margin:0 auto;width:100%}
-#pg img{display:block;width:100%;height:auto;-webkit-user-select:none;user-select:none}
-#ov{position:absolute;inset:0;display:none;touch-action:none;cursor:crosshair;background:rgba(194,24,91,.06)}
-#ov.on{display:block}
+.pgw{position:relative;width:100%;aspect-ratio:581/794;background:#fff;margin-bottom:6px}
+.pgw.ph{aspect-ratio:auto}
+.pgw img{display:block;width:100%;height:100%;-webkit-user-select:none;user-select:none}
+.pgw.ph img{height:auto}
+.ov{position:absolute;inset:0;display:none;touch-action:none;cursor:crosshair;background:rgba(194,24,91,.06)}
+#pg.crop .ov{display:block}
 #box{position:absolute;border:2px solid var(--ac);background:rgba(194,24,91,.18);display:none}
+.nav .mid{cursor:pointer}
 .nav{display:flex;gap:8px;align-items:center;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:var(--bg);border-top:1px solid var(--bd)}
 .nav .mid{flex:1;text-align:center;font-size:14px;color:var(--mut)}
 .hint{display:none;background:var(--ac);color:#fff;padding:8px 14px;font-size:14px;text-align:center}
@@ -52,6 +56,15 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 input[type=text],input[type=password]{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit;direction:ltr;margin:6px 0 12px}
 ol{padding-inline-start:20px;line-height:2}
 .pri{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:700}
+#show{position:fixed;inset:0;z-index:30;background:var(--bg);display:none;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+#sbody{flex:1;overflow:auto;padding:20px;display:flex;flex-direction:column;justify-content:center;max-width:720px;width:100%;margin:0 auto}
+#st{color:var(--ac);font-size:26px;margin:0 0 10px;line-height:1.6}
+#sl{list-style:none;padding:0;margin:0}
+#sl li{opacity:0;transform:translateY(12px);transition:all .5s;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin:10px 0;font-size:20px;line-height:1.8}
+#sl li.vis{opacity:1;transform:none}
+#nv{display:none;background:var(--hl);padding:8px 14px;font-size:13px;line-height:1.7}
+#show .nav{justify-content:center;gap:16px}
+#show .nav .ib{font-size:22px;padding:10px 18px}
 </style>
 </head>
 <body>
@@ -66,12 +79,13 @@ ol{padding-inline-start:20px;line-height:2}
 <div id="reader">
   <div class="top"><button class="ib" id="rb">→</button><h1 id="rt"></h1><button class="ib" id="zm">🔍−</button><button class="ib" id="zp">🔍+</button></div>
   <div class="hint" id="hint">ارسم مستطيلاً بإصبعك حول الجزء الذي تريد شرحه</div>
-  <div id="scroll"><div id="pg"><img id="im" alt=""><div id="ov"><div id="box"></div></div></div>
-    <div class="qz" id="qz" style="display:none"><div style="margin-bottom:10px">أنهيت الدرس؟ اختبر فهمك</div><button id="qb2">🧠 اختبر نفسك</button></div></div>
-  <div class="nav"><button class="ib" id="nx">›</button><button class="ib" id="sel">✨ حدّد واشرح</button><div class="mid" id="cnt"></div><button class="ib" id="qb">🧠</button><button class="ib" id="pv">‹</button></div>
+  <div id="scroll"><div id="pg"><div id="bk"></div></div></div>
+  <div class="nav"><button class="ib" id="nx">›</button><button class="ib" id="sel">✨ حدّد واشرح</button><div class="mid" id="cnt"></div><button class="ib" id="qb">🧠</button><button class="ib" id="pv">‹</button><button class="ib" id="whole" style="display:none">✨ اشرح الكل</button><button class="ib" id="newp" style="display:none">📷</button></div>
+<input type="file" id="fcam" accept="image/*" capture="environment" hidden><input type="file" id="fgal" accept="image/*" hidden>
 </div>
 <div id="shade"><div id="sheet"><button id="x">✕</button><div id="sb"></div></div></div>
 
+<div id="show"><div class="top"><button class="ib" id="sx">✕</button><h1 id="sn"></h1><button class="ib" id="spd">1×</button></div><div id="nv"></div><div id="sbody"><h2 id="st"></h2><ul id="sl"></ul></div><div class="nav"><button class="ib" id="sprv">⏮</button><button class="ib" id="pp">⏸</button><button class="ib" id="snx">⏭</button></div></div>
 <script>
 const BOOKS=[{id:"math1",title:"الرياضيات — الجزء الأول",sub:"الثالث الثانوي العلمي",total:252,
 src:n=>"pages/p-"+String(n).padStart(3,"0")+".jpg",
@@ -114,27 +128,53 @@ function openBook(b){
   show("toc");
 }
 $("tb").onclick=()=>show("home");
-$("rb").onclick=()=>{setCrop(false);show("toc")};
+$("rb").onclick=()=>{setCrop(false);if(photoMode){navMode(false);show("home")}else show("toc")};
 
-function openPage(p){n=Math.max(1,Math.min(B.total,p));show("reader");$("im").src=B.src(n);$("scroll").scrollTop=0;
-  const l=lessonOf(n);$("rt").textContent=l.t;$("cnt").textContent=n+" / "+B.total;
-  $("qz").style.display=n===l.e?"block":"none";$("pv").disabled=n<=1;$("nx").disabled=n>=B.total;
-  if(n<B.total)(new Image()).src=B.src(n+1)}
-$("pv").onclick=()=>openPage(n-1);$("nx").onclick=()=>openPage(n+1);
+let builtFor=null,ioLoad=null,ioCur=null;
+function mkWrap(){const d=document.createElement("div");d.className="pgw";d.innerHTML="<img alt=''><div class='ov'></div>";return d}
+function stopIO(){if(ioLoad)ioLoad.disconnect();if(ioCur)ioCur.disconnect()}
+function buildBook(){
+  const bk=$("bk");bk.innerHTML="";stopIO();
+  ioLoad=new IntersectionObserver(es=>es.forEach(e=>{const w=e.target,im=w.firstChild;
+    if(e.isIntersecting){if(!im.getAttribute("src"))im.src=B.src(+w.dataset.p)}else if(im.getAttribute("src"))im.removeAttribute("src")}),{root:$("scroll"),rootMargin:"250% 0px"});
+  ioCur=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)setCur(+e.target.dataset.p)}),{root:$("scroll"),rootMargin:"-45% 0px -45% 0px"});
+  const lastOf={};LS.forEach(l=>{if(!/^(مدخل|المقدمة|مسرد)/.test(l.t))lastOf[l.e]=l});
+  for(let p=1;p<=B.total;p++){
+    const w=mkWrap();w.dataset.p=p;bk.appendChild(w);ioLoad.observe(w);ioCur.observe(w);
+    const l=lastOf[p];
+    if(l){const q=document.createElement("div");q.className="qz";q.innerHTML="<div style='margin-bottom:10px'></div><button>🧠 اختبر نفسك</button>";
+      q.firstChild.textContent="أنهيت درس «"+l.t+"»؟ اختبر فهمك";q.lastChild.onclick=()=>{n=l.e;quiz()};bk.appendChild(q)}
+  }
+  builtFor=B.id;
+}
+function setCur(p){n=p;$("rt").textContent=lessonOf(p).t;$("cnt").textContent="صفحة "+p+" / "+B.total;$("pv").disabled=p<=1;$("nx").disabled=p>=B.total}
+function goTo(p){
+  p=Math.max(1,Math.min(B.total,p));const w=$("bk").querySelector('[data-p="'+p+'"]');if(!w)return;
+  const im=w.firstChild;if(!im.getAttribute("src"))im.src=B.src(p);
+  $("scroll").scrollTop=w.offsetTop;setCur(p);
+}
+function openPage(p){navMode(false);show("reader");if(builtFor!==B.id)buildBook();goTo(p)}
+$("pv").onclick=()=>goTo(n-1);$("nx").onclick=()=>goTo(n+1);
+$("cnt").onclick=()=>{if(photoMode)return;
+  open_("<h3>اذهب إلى صفحة</h3><input type='text' inputmode='numeric' id='gp' placeholder='1 - "+B.total+"'><button class='pri' id='gb'>اذهب</button>");
+  const go=()=>{const v=parseInt($("gp").value);if(v){$("shade").classList.remove("on");goTo(v)}};
+  $("gb").onclick=go;$("gp").addEventListener("keydown",e=>{if(e.key==="Enter")go()})};
 function setZoom(z){zoom=Math.max(1,Math.min(3,z));$("pg").style.width=(zoom*100)+"%"}
 $("zp").onclick=()=>setZoom(zoom+.5);$("zm").onclick=()=>setZoom(zoom-.5);
-function setCrop(on){cropOn=on;$("ov").classList.toggle("on",on);$("sel").classList.toggle("on",on);$("hint").classList.toggle("on",on);$("box").style.display="none"}
+function setCrop(on){cropOn=on;$("pg").classList.toggle("crop",on);$("sel").classList.toggle("on",on);$("hint").classList.toggle("on",on);bx.style.display="none"}
 $("sel").onclick=()=>setCrop(!cropOn);
 
-/* رسم المستطيل */
-const ov=$("ov"),bx=$("box");let st=null;
-ov.addEventListener("pointerdown",e=>{const r=ov.getBoundingClientRect();st={x:e.clientX-r.left,y:e.clientY-r.top};ov.setPointerCapture(e.pointerId);bx.style.display="block";upd(st.x,st.y)});
-ov.addEventListener("pointermove",e=>{if(!st)return;const r=ov.getBoundingClientRect();upd(e.clientX-r.left,e.clientY-r.top)});
+/* رسم المستطيل (على أي صفحة) */
+const bx=document.createElement("div");bx.id="box";let st=null,cur=null;
+const pgEl=$("pg");
+pgEl.addEventListener("pointerdown",e=>{const o=e.target.closest(".ov");if(!o||!cropOn)return;cur=o;const r=o.getBoundingClientRect();st={x:e.clientX-r.left,y:e.clientY-r.top};o.setPointerCapture(e.pointerId);o.appendChild(bx);bx.style.display="block";upd(st.x,st.y)});
+pgEl.addEventListener("pointermove",e=>{if(!st)return;const r=cur.getBoundingClientRect();upd(e.clientX-r.left,e.clientY-r.top)});
 function upd(x,y){const l=Math.min(st.x,x),t=Math.min(st.y,y);bx.style.left=l+"px";bx.style.top=t+"px";bx.style.width=Math.abs(x-st.x)+"px";bx.style.height=Math.abs(y-st.y)+"px"}
-ov.addEventListener("pointerup",e=>{if(!st)return;const r=ov.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+pgEl.addEventListener("pointerup",e=>{if(!st)return;const r=cur.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
   const l=Math.max(0,Math.min(st.x,x)),t=Math.max(0,Math.min(st.y,y)),w=Math.min(r.width-l,Math.abs(x-st.x)),h=Math.min(r.height-t,Math.abs(y-st.y));st=null;
   if(w<25||h<25){bx.style.display="none";return}
-  const im=$("im"),k=im.naturalWidth/r.width,c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);
+  const im=cur.parentNode.firstChild;if(!im.naturalWidth){bx.style.display="none";return}
+  const k=im.naturalWidth/r.width,c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);
   c.getContext("2d").drawImage(im,l*k,t*k,w*k,h*k,0,0,c.width,c.height);
   setCrop(false);explain(c.toDataURL("image/jpeg",.9).split(",")[1])});
 
@@ -145,7 +185,7 @@ const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 const fmt=s=>esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\$/g,"").replace(/^#+\s*/gm,"");
 
 /* Gemini */
-const SYS="أنت معلم رياضيات صبور لطالب في الثالث الثانوي العلمي. اكتب بالعربية المبسطة. اكتب المعادلات بصيغة نصية عادية (مثل x² و √ و ≤ و ∑ و lim) ولا تستخدم LaTeX ولا الرمز $. استخدم خطوات مرقمة قصيرة وعناوين قصيرة بلا مقدمات.\n";
+const SYS="أنت معلم صبور متخصص في مواد الثالث الثانوي (الرياضيات والفيزياء والكيمياء والعلوم واللغات). إن كان جزء من الصورة غير واضح فاذكر ذلك ولا تخمّن. اكتب بالعربية المبسطة. اكتب المعادلات بصيغة نصية عادية (مثل x² و √ و ≤ و ∑ و lim) ولا تستخدم LaTeX ولا الرمز $. استخدم خطوات مرقمة قصيرة وعناوين قصيرة بلا مقدمات.\n";
 async function gem(parts,json){
   const key=ld("gk");if(!key){settings(true);throw new Error("nokey")}
   const ms=[ld("gm")||"gemini-3.5-flash","gemini-2.5-flash"];
@@ -159,18 +199,87 @@ async function gem(parts,json){
 const errMsg=e=>e.message==="nokey"?"":e.message==="429"?"وصلت إلى الحد المجاني مؤقتاً. انتظر دقيقة ثم حاول مجدداً.":(e.message==="400"||e.message==="403")?"المفتاح غير صالح. راجع الإعدادات ⚙️.":"تعذّر الاتصال الآن. حاول مرة أخرى.";
 
 const MODES={
- explain:"الصورة جزء من صفحة في كتاب الرياضيات. اشرح ما فيها شرحاً توضيحياً مريحاً ومفهوماً: ابدأ بفكرته الأساسية في جملتين ثم فصّلها بخطوات. إن كان مثالاً أو تمريناً فحلّه خطوة بخطوة مع تعليل كل خطوة.",
+ explain:"الصورة فيها درس أو تمرين أو سؤال (من كتاب أو دفتر أو سبورة). اشرح ما فيها شرحاً توضيحياً مريحاً ومفهوماً: ابدأ بفكرته الأساسية في جملتين ثم فصّلها بخطوات. إن كان مثالاً أو تمريناً فحلّه خطوة بخطوة مع تعليل كل خطوة.",
  simple:"اشرح ما في الصورة مرة أخرى بطريقة أبسط بكثير كأنك تشرحه لطالب يجد المادة صعبة، مع تشبيه من الحياة اليومية.",
  example:"أعطِ مثالاً تطبيقياً واحداً أو اثنين مع حلّهما على الفكرة الموجودة في الصورة.",
  quiz:"اطرح 3 أسئلة قصيرة متدرجة لاختبار فهمي لما في الصورة، ولا تذكر الإجابات إلا في آخر الرد تحت عنوان «الإجابات»."};
+let lastT="";
 async function explain(b64,mode){
   mode=mode||"explain";
-  open_("<img id='thumb' src='data:image/jpeg;base64,"+b64+"'><div class='ans' id='an'>⏳ جاري الشرح…</div><div class='acts' id='ac' style='display:none'><button class='chip' data-m='simple'>أبسط من ذلك</button><button class='chip' data-m='example'>أعطني مثالاً</button><button class='chip' data-m='quiz'>اختبرني</button></div>");
+  if(mode==="show")return startShow(b64);
+  if(mode==="verify")return verify(b64,lastT,$("vf"));
+  open_("<img id='thumb' src='data:image/jpeg;base64,"+b64+"'><div class='ans' id='an'>⏳ جاري الشرح…</div><div class='acts' id='ac' style='display:none'><button class='chip' data-m='simple'>أبسط من ذلك</button><button class='chip' data-m='example'>أعطني مثالاً</button><button class='chip' data-m='quiz'>اختبرني</button><button class='chip' data-m='show' style='background:var(--ac);color:#fff;border-color:var(--ac)'>🎬 اعرض كشرائح</button><button class='chip' data-m='verify'>🔍 تحقق بنموذج ثانٍ</button></div><div class='ans' id='vf' style='margin-top:14px'></div>");
   try{const t=await gem([{text:SYS+MODES[mode]},{inline_data:{mime_type:"image/jpeg",data:b64}}]);
-    $("an").innerHTML=fmt(t);$("ac").style.display="flex";
+    $("an").innerHTML=fmt(t);lastT=t;$("ac").style.display="flex";
     $("ac").querySelectorAll("button").forEach(b=>b.onclick=()=>explain(b64,b.dataset.m))
   }catch(e){if(e.message!=="nokey")$("an").textContent=errMsg(e)}
 }
+
+/* التحقق بنموذج ثانٍ (Groq) */
+async function verify(b64,txt,out){
+  const k=ld("gq");
+  if(!k){out.textContent="للتحقق أضف مفتاح Groq المجاني من ⚙️ الإعدادات.";return}
+  if(!txt){out.textContent="لا يوجد شرح للتحقق منه بعد.";return}
+  out.textContent="🔍 النموذج الثاني يراجع الحل…";
+  const content=[{type:"text",text:"أنت مدقق صارم. هذا شرح أو حل كتبه مساعد آخر لما في الصورة (أو للسؤال المذكور). حُلّ المسألة بنفسك أولاً بشكل مستقل، ثم قارن حلّك بما كتبه المساعد. اكتب بالعربية المبسطة، والمعادلات نصاً عادياً بلا LaTeX. ابدأ ردك بسطر واحد إما «✅ متفق: لم أجد أخطاء» أو «⚠️ يوجد اختلاف»، ثم اشرح بإيجاز الخطأ وصحّحه إن وُجد.\nما كتبه المساعد:\n"+txt}];
+  if(b64)content.push({type:"image_url",image_url:{url:"data:image/jpeg;base64,"+b64}});
+  const ms=[ld("gv")||"qwen/qwen3.8-27b","qwen/qwen3.6-27b"];
+  try{
+    for(let i=0;i<ms.length;i++){
+      const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+k},body:JSON.stringify({model:ms[i],messages:[{role:"user",content}],temperature:0.2})});
+      if((r.status===404||r.status===400)&&i<ms.length-1)continue;
+      if(!r.ok){out.textContent=r.status===401?"مفتاح Groq غير صالح. راجع ⚙️.":r.status===429?"وصلت إلى الحد المجاني لـ Groq مؤقتاً. انتظر قليلاً.":"تعذّر التحقق الآن ("+r.status+").";return}
+      const d=await r.json();let t=(d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||"";
+      t=t.replace(/<think>[\s\S]*?<\/think>/g,"").trim();
+      out.innerHTML="<b>🔍 مراجعة نموذج ثانٍ:</b>\n"+fmt(t||"لم يصل رد.");return}
+  }catch(e){out.textContent="تعذّر الاتصال بـ Groq. تأكد من الإنترنت ومن المفتاح."}
+}
+
+/* العرض التقديمي الناطق */
+let S=[],si=0,sp=0,gen=0,playing=false,done=false,rate=1,hasAr=false;
+const TTS="speechSynthesis" in window;
+function chkVoice(){try{hasAr=TTS&&speechSynthesis.getVoices().some(v=>v.lang.toLowerCase().indexOf("ar")===0)}catch(e){hasAr=false}}
+if(TTS){speechSynthesis.onvoiceschanged=chkVoice;chkVoice()}
+async function startShow(b64){
+  open_("<img id='thumb' src='data:image/jpeg;base64,"+b64+"'><div class='ans' id='an'>🎬 أجهّز العرض التقديمي… (قد يستغرق دقيقة)</div>");
+  try{
+    const t=await gem([{text:SYS+"الصورة فيها درس أو تمرين أو سؤال (من كتاب أو دفتر أو سبورة). حوّل شرحه إلى عرض تقديمي من 4 إلى 7 شرائح متسلسلة (الفكرة، القاعدة، مثال محلول خطوة بخطوة، ثم خطأ شائع أو ملخص). لكل شريحة: title عنوان قصير، وsteps من 2 إلى 4 خطوات، في كل خطوة text نص مكتوب قصير يظهر على الشاشة (المعادلات بصيغة نصية)، وsay جملة أو جملتان تُنطق بصوت المعلم بعربية مبسطة، وتُكتب فيها الرموز بالكلمات (مثل: x تربيع، جذر، أكبر من أو يساوي، ضرب). أعد JSON فقط بالشكل: {\"slides\":[{\"title\":\"\",\"steps\":[{\"text\":\"\",\"say\":\"\"}]}]}"},{inline_data:{mime_type:"image/jpeg",data:b64}}],true);
+    const o=JSON.parse(t.replace(/```json|```/g,"").trim());
+    S=(o.slides||o).map(s=>({title:s.title||"",steps:[{text:"",say:s.title||""}].concat((s.steps||[]).map(x=>({text:x.text||"",say:x.say||x.text||""})))}));
+    if(!S.length)throw new SyntaxError("empty");
+    $("shade").classList.remove("on");openShow();
+  }catch(e){if(e.message!=="nokey")$("an").textContent=e instanceof SyntaxError?"تعذّر تجهيز العرض. أعد المحاولة.":errMsg(e)}
+}
+function openShow(){
+  chkVoice();si=0;sp=0;playing=true;done=false;
+  const nv=$("nv");nv.style.display=hasAr?"none":"block";
+  nv.textContent=TTS?"لم أجد صوتاً عربياً على جهازك، فسيتقدم العرض تلقائياً بلا صوت. لتفعيل الصوت: إعدادات الهاتف ← تحويل النص إلى كلام (Google) ← تثبيت بيانات الصوت العربي.":"المتصفح لا يدعم الصوت، فسيتقدم العرض بلا صوت.";
+  nv.style.display=hasAr?"none":"block";
+  $("show").style.display="flex";buildSlide();go();
+}
+function buildSlide(){
+  const s=S[si];$("sn").textContent=(si+1)+" / "+S.length;$("st").textContent=s.title;
+  const ul=$("sl");ul.innerHTML="";
+  s.steps.forEach((x,k)=>{if(!x.text)return;const li=document.createElement("li");li.textContent=x.text;li.dataset.k=k;ul.appendChild(li)});
+}
+function reveal(){$("sl").childNodes.forEach(li=>li.classList.toggle("vis",+li.dataset.k<=sp));$("pp").textContent=done?"🔁":playing?"⏸":"▶";$("spd").textContent=rate+"×"}
+function stopTTS(){gen++;if(TTS)speechSynthesis.cancel()}
+function go(){
+  stopTTS();const g=gen;reveal();if(!playing)return;
+  const x=S[si].steps[sp],next=()=>{if(g===gen&&playing)adv()};
+  if(hasAr&&TTS){const u=new SpeechSynthesisUtterance(x.say);u.lang="ar-SA";u.rate=rate;u.onend=next;u.onerror=()=>setTimeout(next,Math.max(2500,x.say.length*70));speechSynthesis.speak(u)}
+  else setTimeout(next,Math.max(3000,x.say.length*90/rate));
+}
+function adv(){
+  if(sp<S[si].steps.length-1){sp++;go()}
+  else if(si<S.length-1){si++;sp=0;buildSlide();go()}
+  else{playing=false;done=true;stopTTS();reveal()}
+}
+function jump(d){stopTTS();si=Math.max(0,Math.min(S.length-1,si+d));sp=0;done=false;buildSlide();go()}
+$("pp").onclick=()=>{if(done){done=false;playing=true;si=0;sp=0;buildSlide();go()}else{playing=!playing;if(playing)go();else{stopTTS();reveal()}}};
+$("sprv").onclick=()=>jump(-1);$("snx").onclick=()=>jump(1);
+$("spd").onclick=()=>{rate=rate===1?0.8:rate===0.8?1.2:1;if(playing)go();else reveal()};
+$("sx").onclick=()=>{playing=false;stopTTS();$("show").style.display="none"};
 
 /* اختبر نفسك */
 function pageB64(p,w){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>{const c=document.createElement("canvas"),k=Math.min(1,w/i.naturalWidth);c.width=i.naturalWidth*k;c.height=i.naturalHeight*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);ok(c.toDataURL("image/jpeg",.7).split(",")[1])};i.onerror=no;i.src=B.src(p)})}
@@ -187,17 +296,39 @@ async function quiz(){
     qs.forEach((q,k)=>{const d=document.createElement("div");d.className="q";d.innerHTML="<small></small><div class='ans'></div><div class='acts'><button class='chip' data-k='h'>💡 تلميح</button><button class='chip' data-k='s'>✅ الحل مع الشرح</button></div><div class='ans' style='display:none'></div>";
       d.children[0].textContent="سؤال "+(k+1)+" — "+(q.level||"");d.children[1].innerHTML=fmt(q.q);const out=d.children[3];
       d.querySelectorAll("button").forEach(b=>b.onclick=async()=>{out.style.display="block";out.textContent="⏳…";
-        try{const r=await gem([{text:SYS+(b.dataset.k==="h"?"الطالب يجد هذا السؤال صعباً. أعطه تلميحاً صغيراً يوجّهه للخطوة الأولى دون كشف الحل:\n":"حلّ هذا السؤال خطوة بخطوة مع شرح كل خطوة:\n")+q.q}]);out.innerHTML=fmt(r)}catch(e){out.textContent=errMsg(e)}});
+        try{const r=await gem([{text:SYS+(b.dataset.k==="h"?"الطالب يجد هذا السؤال صعباً. أعطه تلميحاً صغيراً يوجّهه للخطوة الأولى دون كشف الحل:\n":"حلّ هذا السؤال خطوة بخطوة مع شرح كل خطوة:\n")+q.q}]);out.innerHTML=fmt(r);if(b.dataset.k==="s"){const vb=document.createElement("button"),vo=document.createElement("div");vb.className="chip";vb.textContent="🔍 تحقق بنموذج ثانٍ";vo.className="ans";vb.onclick=()=>verify(null,"السؤال: "+q.q+"\nالحل: "+r,vo);out.appendChild(document.createElement("br"));out.appendChild(vb);out.appendChild(vo)}}catch(e){out.textContent=errMsg(e)}});
       box.appendChild(d)});
   }catch(e){if(e.message!=="nokey")$("qa").textContent=e instanceof SyntaxError?"تعذّر تجهيز الأسئلة. أعد المحاولة.":errMsg(e)}
 }
-$("qb").onclick=quiz;$("qb2").onclick=quiz;
+$("qb").onclick=quiz;
+
+/* اشرح صورة من عندك */
+let photoMode=false,photoData="";
+function navMode(ph){photoMode=ph;["nx","pv","qb","cnt"].forEach(id=>$(id).style.display=ph?"none":"");["whole","newp"].forEach(id=>$(id).style.display=ph?"":"none")}
+const pc=document.createElement("button");pc.className="card";pc.innerHTML="<b>📷 اشرح صورة من عندك</b><span style='color:var(--mut)'>صوّر تمريناً من أي كتاب أو دفتر ويشرحه الذكاء الاصطناعي</span>";
+pc.onclick=pickPhoto;$("homebody").prepend(pc);
+function pickPhoto(){
+  open_("<h3>📷 اشرح صورة</h3><div class='acts'><button class='pri' id='pc1'>📸 التقاط صورة</button><button class='pri' id='pc2'>🖼️ من المعرض</button></div><p style='color:var(--mut);font-size:13px'>اجعل الصورة واضحة ومضاءة جيداً. وبعد فتحها يمكنك تحديد جزء منها فقط.</p>");
+  $("pc1").onclick=()=>$("fcam").click();$("pc2").onclick=()=>$("fgal").click();
+}
+function loadPhoto(f){
+  if(!f)return;const u=URL.createObjectURL(f),i=new Image();
+  i.onload=()=>{const k=Math.min(1,1600/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement("canvas");
+    c.width=Math.round(i.naturalWidth*k);c.height=Math.round(i.naturalHeight*k);c.getContext("2d").drawImage(i,0,0,c.width,c.height);
+    photoData=c.toDataURL("image/jpeg",.88);URL.revokeObjectURL(u);$("shade").classList.remove("on");openPhoto()};
+  i.onerror=()=>{open_("<p>تعذّر فتح هذه الصورة. جرّب صورة أخرى.</p>")};i.src=u;
+}
+$("fcam").onchange=e=>{loadPhoto(e.target.files[0]);e.target.value=""};
+$("fgal").onchange=e=>{loadPhoto(e.target.files[0]);e.target.value=""};
+function openPhoto(){navMode(true);show("reader");builtFor=null;stopIO();const bk=$("bk");bk.innerHTML="";const w=mkWrap();w.classList.add("ph");w.firstChild.src=photoData;bk.appendChild(w);$("rt").textContent="📷 صورتك";$("cnt").textContent="";$("scroll").scrollTop=0;setZoom(1);setCrop(false)}
+$("whole").onclick=()=>{setCrop(false);explain(photoData.split(",")[1])};
+$("newp").onclick=pickPhoto;
 
 /* الإعدادات */
 function settings(first){
-  open_("<h3>⚙️ الإعدادات</h3>"+(first?"<p>لتفعيل الشرح الذكي أحتاج مفتاحك الخاص (مجاني):</p>":"")+"<ol><li>افتح <b>aistudio.google.com/apikey</b> وسجّل بحساب Google.</li><li>اضغط Create API key وانسخ المفتاح.</li><li>الصقه هنا.</li></ol><label>مفتاح Gemini</label><input type='password' id='k' placeholder='AIza...'><label>النموذج (اتركه كما هو)</label><input type='text' id='m'><div class='acts'><button class='pri' id='sv'>حفظ</button><button class='chip' id='th'>🌓 الوضع الليلي</button></div><p style='color:var(--mut);font-size:13px'>المفتاح يُحفظ في جهازك فقط. الشرح قد يخطئ أحياناً، فقارنه مع الكتاب والمعلّم.</p>");
-  $("k").value=ld("gk");$("m").value=ld("gm")||"gemini-3.5-flash";
-  $("sv").onclick=()=>{sv("gk",$("k").value.trim());sv("gm",$("m").value.trim());$("shade").classList.remove("on")};
+  open_("<h3>⚙️ الإعدادات</h3>"+(first?"<p>لتفعيل الشرح الذكي أحتاج مفتاحك الخاص (مجاني):</p>":"")+"<ol><li>افتح <b>aistudio.google.com/apikey</b> وسجّل بحساب Google.</li><li>اضغط Create API key وانسخ المفتاح.</li><li>الصقه هنا.</li></ol><label>مفتاح Gemini</label><input type='password' id='k' placeholder='AIza...'><label>النموذج (اتركه كما هو)</label><input type='text' id='m'><hr><label>مفتاح Groq للتحقق (اختياري، مجاني) من console.groq.com/keys</label><input type='password' id='gq' placeholder='gsk_...'><label>نموذج التحقق (اتركه كما هو)</label><input type='text' id='gv'><div class='acts'><button class='pri' id='sv'>حفظ</button><button class='chip' id='th'>🌓 الوضع الليلي</button></div><p style='color:var(--mut);font-size:13px'>المفتاح يُحفظ في جهازك فقط. الشرح قد يخطئ أحياناً، فقارنه مع الكتاب والمعلّم.</p>");
+  $("k").value=ld("gk");$("m").value=ld("gm")||"gemini-3.5-flash";$("gq").value=ld("gq");$("gv").value=ld("gv")||"qwen/qwen3.8-27b";
+  $("sv").onclick=()=>{sv("gk",$("k").value.trim());sv("gm",$("m").value.trim());sv("gq",$("gq").value.trim());sv("gv",$("gv").value.trim());$("shade").classList.remove("on")};
   $("th").onclick=()=>{const d=document.documentElement;d.dataset.theme=getComputedStyle(d).getPropertyValue("--bg").trim()==="#17160f"?"light":"dark"};
 }
 $("setb").onclick=()=>settings(false);
