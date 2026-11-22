@@ -236,7 +236,7 @@ async function verify(b64,txt,out){
 }
 
 /* العرض التقديمي الناطق */
-let S=[],si=0,sp=0,gen=0,playing=false,done=false,rate=1,hasAr=false;
+let S=[],si=0,sp=0,gen=0,playing=false,done=false,rate=1,hasAr=false,noVoice=false;
 const TTS="speechSynthesis" in window;
 function chkVoice(){try{hasAr=TTS&&speechSynthesis.getVoices().some(v=>v.lang.toLowerCase().indexOf("ar")===0)}catch(e){hasAr=false}}
 if(TTS){speechSynthesis.onvoiceschanged=chkVoice;chkVoice()}
@@ -251,10 +251,9 @@ async function startShow(b64){
   }catch(e){if(e.message!=="nokey")$("an").textContent=e instanceof SyntaxError?"تعذّر تجهيز العرض. أعد المحاولة.":errMsg(e)}
 }
 function openShow(){
-  chkVoice();si=0;sp=0;playing=true;done=false;
-  const nv=$("nv");nv.style.display=hasAr?"none":"block";
-  nv.textContent=TTS?"لم أجد صوتاً عربياً على جهازك، فسيتقدم العرض تلقائياً بلا صوت. لتفعيل الصوت: إعدادات الهاتف ← تحويل النص إلى كلام (Google) ← تثبيت بيانات الصوت العربي.":"المتصفح لا يدعم الصوت، فسيتقدم العرض بلا صوت.";
-  nv.style.display=hasAr?"none":"block";
+  chkVoice();si=0;sp=0;playing=true;done=false;noVoice=false;
+  const nv=$("nv");nv.style.display="none";
+  nv.textContent=TTS?"لم يبدأ الصوت العربي على جهازك، فسيتقدم العرض تلقائياً بلا صوت. لتفعيله: ⚙️ الإعدادات ← «🔊 اختبار الصوت العربي»، وراجع إعدادات تحويل النص إلى كلام في الهاتف.":"المتصفح لا يدعم الصوت، فسيتقدم العرض بلا صوت.";
   $("show").style.display="flex";buildSlide();go();
 }
 function buildSlide(){
@@ -264,11 +263,19 @@ function buildSlide(){
 }
 function reveal(){$("sl").childNodes.forEach(li=>li.classList.toggle("vis",+li.dataset.k<=sp));$("pp").textContent=done?"🔁":playing?"⏸":"▶";$("spd").textContent=rate+"×"}
 function stopTTS(){gen++;if(TTS)speechSynthesis.cancel()}
+function silent(){noVoice=true;$("nv").style.display="block"}
 function go(){
   stopTTS();const g=gen;reveal();if(!playing)return;
   const x=S[si].steps[sp],next=()=>{if(g===gen&&playing)adv()};
-  if(hasAr&&TTS){const u=new SpeechSynthesisUtterance(x.say);u.lang="ar-SA";u.rate=rate;u.onend=next;u.onerror=()=>setTimeout(next,Math.max(2500,x.say.length*70));speechSynthesis.speak(u)}
-  else setTimeout(next,Math.max(3000,x.say.length*90/rate));
+  let fired=false;const wait=()=>{if(fired)return;fired=true;setTimeout(next,Math.max(3000,x.say.length*90/rate))};
+  if(!TTS||noVoice){if(!TTS)silent();wait();return}
+  const u=new SpeechSynthesisUtterance(x.say);u.lang="ar-SA";u.rate=rate;
+  const ar=speechSynthesis.getVoices().find(v=>v.lang.toLowerCase().indexOf("ar")===0);if(ar)u.voice=ar;
+  let started=false;
+  u.onstart=()=>{started=true};u.onend=next;
+  u.onerror=()=>{if(g!==gen)return;if(!started)silent();wait()};
+  speechSynthesis.speak(u);
+  setTimeout(()=>{if(g===gen&&playing&&!started){silent();speechSynthesis.cancel();wait()}},4000);
 }
 function adv(){
   if(sp<S[si].steps.length-1){sp++;go()}
@@ -326,8 +333,15 @@ $("newp").onclick=pickPhoto;
 
 /* الإعدادات */
 function settings(first){
-  open_("<h3>⚙️ الإعدادات</h3>"+(first?"<p>لتفعيل الشرح الذكي أحتاج مفتاحك الخاص (مجاني):</p>":"")+"<ol><li>افتح <b>aistudio.google.com/apikey</b> وسجّل بحساب Google.</li><li>اضغط Create API key وانسخ المفتاح.</li><li>الصقه هنا.</li></ol><label>مفتاح Gemini</label><input type='password' id='k' placeholder='AIza...'><label>النموذج (اتركه كما هو)</label><input type='text' id='m'><hr><label>مفتاح Groq للتحقق (اختياري، مجاني) من console.groq.com/keys</label><input type='password' id='gq' placeholder='gsk_...'><label>نموذج التحقق (اتركه كما هو)</label><input type='text' id='gv'><div class='acts'><button class='pri' id='sv'>حفظ</button><button class='chip' id='th'>🌓 الوضع الليلي</button></div><p style='color:var(--mut);font-size:13px'>المفتاح يُحفظ في جهازك فقط. الشرح قد يخطئ أحياناً، فقارنه مع الكتاب والمعلّم.</p>");
+  open_("<h3>⚙️ الإعدادات</h3>"+(first?"<p>لتفعيل الشرح الذكي أحتاج مفتاحك الخاص (مجاني):</p>":"")+"<ol><li>افتح <b>aistudio.google.com/apikey</b> وسجّل بحساب Google.</li><li>اضغط Create API key وانسخ المفتاح.</li><li>الصقه هنا.</li></ol><label>مفتاح Gemini</label><input type='password' id='k' placeholder='AIza...'><label>النموذج (اتركه كما هو)</label><input type='text' id='m'><hr><label>مفتاح Groq للتحقق (اختياري، مجاني) من console.groq.com/keys</label><input type='password' id='gq' placeholder='gsk_...'><label>نموذج التحقق (اتركه كما هو)</label><input type='text' id='gv'><button class='chip' id='tv'>🔊 اختبار الصوت العربي</button><div id='tr' style='font-size:13px;margin:8px 0;color:var(--mut);line-height:1.8'></div><div class='acts'><button class='pri' id='sv'>حفظ</button><button class='chip' id='th'>🌓 الوضع الليلي</button></div><p style='color:var(--mut);font-size:13px'>المفتاح يُحفظ في جهازك فقط. الشرح قد يخطئ أحياناً، فقارنه مع الكتاب والمعلّم.</p>");
   $("k").value=ld("gk");$("m").value=ld("gm")||"gemini-3.5-flash";$("gq").value=ld("gq");$("gv").value=ld("gv")||"qwen/qwen3.8-27b";
+  $("tv").onclick=()=>{
+    const t=$("tr");if(!TTS){t.textContent="هذا المتصفح لا يدعم الصوت. جرّب Chrome.";return}
+    const vs=speechSynthesis.getVoices(),ar=vs.filter(v=>v.lang.toLowerCase().indexOf("ar")===0);
+    t.textContent="الأصوات المكتشفة: "+vs.length+" | العربية منها: "+ar.length+" … جاري الاختبار";
+    speechSynthesis.cancel();const u=new SpeechSynthesisUtterance("مرحباً، هذا اختبار الصوت العربي");u.lang="ar-SA";if(ar[0])u.voice=ar[0];
+    let ok=false;u.onstart=()=>{ok=true;t.textContent+=" ✅ الصوت يعمل"};u.onerror=e=>{t.textContent+=" ❌ خطأ: "+(e.error||"غير معروف")};
+    speechSynthesis.speak(u);setTimeout(()=>{if(!ok)t.textContent+=" ⚠️ لم يبدأ الصوت"},3500)};
   $("sv").onclick=()=>{sv("gk",$("k").value.trim());sv("gm",$("m").value.trim());sv("gq",$("gq").value.trim());sv("gv",$("gv").value.trim());$("shade").classList.remove("on")};
   $("th").onclick=()=>{const d=document.documentElement;d.dataset.theme=getComputedStyle(d).getPropertyValue("--bg").trim()==="#17160f"?"light":"dark"};
 }
